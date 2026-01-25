@@ -1,161 +1,197 @@
+import { NextResponse } from "next/server";
 import sharp from "sharp";
 
-export const runtime = "nodejs"; // required for sharp in Vercel/Next
-export const dynamic = "force-dynamic";
+// ====== CONFIG ======
+const ASSETS_OWNER = process.env.CLEWDO_ASSETS_OWNER || "nymfluence";
+const ASSETS_REPO = process.env.CLEWDO_ASSETS_REPO || "whisper-clewdo-assets";
+const ASSETS_BRANCH = process.env.CLEWDO_ASSETS_BRANCH || "main";
 
-const OWNER = "nymfluence";
-const ASSETS_REPO = "whisper-clewdo-assets";
-const ASSETS_BRANCH = "main";
+// Where your room images live inside the assets repo:
+const ROOMS_PREFIX = "clewdo/rooms/";
 
-// We try these in order so your mix of png/jpg/jpeg “just works”.
-const IMAGE_EXTENSIONS = ["png", "jpg", "jpeg"];
+// Raw GitHub URL base:
+const RAW_BASE = `https://raw.githubusercontent.com/${ASSETS_OWNER}/${ASSETS_REPO}/${ASSETS_BRANCH}/`;
 
-// Build a GitHub RAW base URL (NO extension).
-function ghRawBase(pathNoExt) {
-  return `https://raw.githubusercontent.com/${OWNER}/${ASSETS_REPO}/${ASSETS_BRANCH}/${pathNoExt}`;
-}
-
-// Try fetch with .png then .jpg then .jpeg until one exists.
-async function fetchImageAnyExt(pathNoExt) {
-  const base = ghRawBase(pathNoExt);
-
-  for (const ext of IMAGE_EXTENSIONS) {
-    const url = `${base}.${ext}`;
-    const res = await fetch(url);
-
-    if (res.ok) {
-      const buf = Buffer.from(await res.arrayBuffer());
-      const contentType = res.headers.get("content-type") || "image/jpeg";
-      return { buf, url, contentType };
-    }
-  }
-
-  throw new Error(`Failed to fetch file: ${pathNoExt} (${IMAGE_EXTENSIONS.join("/")})`);
-}
-
-// Fetch avatar image (Discord CDN etc).
-async function fetchAvatar(url) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Failed to fetch avatar (${res.status})`);
-  return Buffer.from(await res.arrayBuffer());
-}
-
-/**
- * Rooms:
- * - All base images live in: clewdo/rooms/<NN-name>-base.(png/jpg/jpeg)
- * - Only rooms 3–36 have an avatar slot; room 1+2 are “no avatar”.
- *
- * Coordinates are treated as TOP-LEFT of a square.
- */
-const ROOMS = {
-  1: { fileNoExt: "clewdo/rooms/01-entrance-hall-base" },
-  2: { fileNoExt: "clewdo/rooms/02-front-desk-base" },
-
-  3:  { fileNoExt: "clewdo/rooms/03-cloakroom-base",        pfp: { x: 847.1, y: 552.7, w: 226.7, h: 226.7 } },
-  4:  { fileNoExt: "clewdo/rooms/04-gallery-base",          pfp: { x: 202.5, y: 367.5, w: 272.4, h: 272.4 } },
-  5:  { fileNoExt: "clewdo/rooms/05-hall-of-fame-base",     pfp: { x: 395.1, y: 431.9, w: 235.4, h: 235.4 } },
-  6:  { fileNoExt: "clewdo/rooms/06-smoking-terrace-base",  pfp: { x: 832.2, y: 534.6, w: 227.1, h: 227.1 } },
-  7:  { fileNoExt: "clewdo/rooms/07-fire-escape-base",      pfp: { x: 572.9, y: 558.1, w: 211.5, h: 211.5 } },
-  8:  { fileNoExt: "clewdo/rooms/08-bar-base",              pfp: { x: 673.4, y: 390.6, w: 309.0, h: 309.0 } },
-  9:  { fileNoExt: "clewdo/rooms/09-wine-cellar-base",      pfp: { x: 595.4, y: 484.9, w: 234.9, h: 234.9 } },
-  10: { fileNoExt: "clewdo/rooms/10-snug-base",             pfp: { x: 627.9, y: 443.1, w: 236.5, h: 236.5 } },
-  11: { fileNoExt: "clewdo/rooms/11-booths-base",           pfp: { x: 632.1, y: 495.7, w: 226.7, h: 226.7 } },
-  12: { fileNoExt: "clewdo/rooms/12-powder-room-base",      pfp: { x: 313.5, y: 464.4, w: 302.4, h: 302.4 } },
-  13: { fileNoExt: "clewdo/rooms/13-gents-bathroom-base",   pfp: { x: 434.5, y: 474.5, w: 276.3, h: 276.3 } },
-  14: { fileNoExt: "clewdo/rooms/14-dance-floor-base",      pfp: { x: 434.7, y: 473.0, w: 271.4, h: 271.4 } },
-  15: { fileNoExt: "clewdo/rooms/15-dj-booth-base",         pfp: { x: 501.4, y: 433.4, w: 239.2, h: 239.2 } },
-  16: { fileNoExt: "clewdo/rooms/16-games-room-base",       pfp: { x: 596.1, y: 500.1, w: 224.9, h: 224.9 } },
-  17: { fileNoExt: "clewdo/rooms/17-casino-base",           pfp: { x: 626.2, y: 513.2, w: 231.3, h: 231.3 } },
-  18: { fileNoExt: "clewdo/rooms/18-shop-base",             pfp: { x: 589.4, y: 470.9, w: 265.5, h: 265.5 } },
-  19: { fileNoExt: "clewdo/rooms/19-greenroom-base",        pfp: { x: 580.2, y: 439.4, w: 271.3, h: 271.3 } },
-  20: { fileNoExt: "clewdo/rooms/20-staffroom-base",        pfp: { x: 567.6, y: 492.6, w: 244.7, h: 244.7 } },
-  21: { fileNoExt: "clewdo/rooms/21-champagne-lounge-base", pfp: { x: 588.9, y: 464.0, w: 303.9, h: 303.9 } },
-  22: { fileNoExt: "clewdo/rooms/22-confessional-base",     pfp: { x: 589.4, y: 423.3, w: 264.1, h: 264.1 } },
-  23: { fileNoExt: "clewdo/rooms/23-vacuum-chamber-base",   pfp: { x: 658.7, y: 545.5, w: 225.2, h: 225.2 } },
-  24: { fileNoExt: "clewdo/rooms/24-red-room-base",         pfp: { x: 797.1, y: 366.5, w: 273.6, h: 273.6 } },
-  25: { fileNoExt: "clewdo/rooms/25-flash-stage-base",      pfp: { x: 53.2,  y: 367.7, w: 279.7, h: 279.7 } },
-  26: { fileNoExt: "clewdo/rooms/26-owners-office-base",    pfp: { x: 170.0, y: 475.2, w: 252.5, h: 252.5 } },
-  27: { fileNoExt: "clewdo/rooms/27-lift-base",             pfp: { x: 572.7, y: 579.4, w: 198.1, h: 198.1 } },
-  28: { fileNoExt: "clewdo/rooms/28-hotel-floor-base",      pfp: { x: 467.0, y: 407.6, w: 216.8, h: 216.8 } },
-  29: { fileNoExt: "clewdo/rooms/29-bedroom-one-base",      pfp: { x: 465.5, y: 481.0, w: 296.1, h: 296.1 } },
-  30: { fileNoExt: "clewdo/rooms/30-bedroom-two-base",      pfp: { x: 531.2, y: 472.7, w: 251.3, h: 251.3 } },
-  31: { fileNoExt: "clewdo/rooms/31-bedroom-three-base",    pfp: { x: 439.6, y: 370.5, w: 256.9, h: 256.9 } },
-  32: { fileNoExt: "clewdo/rooms/32-bedroom-four-base",     pfp: { x: 437.4, y: 377.9, w: 288.2, h: 288.2 } },
-  33: { fileNoExt: "clewdo/rooms/33-hot-tub-terrace-base",  pfp: { x: 525.3, y: 589.6, w: 212.5, h: 212.5 } },
-  34: { fileNoExt: "clewdo/rooms/34-penthouse-base",        pfp: { x: 476.1, y: 400.7, w: 262.2, h: 262.2 } },
-  35: { fileNoExt: "clewdo/rooms/35-late-checkout-desk-base", pfp: { x: 487.1, y: 488.8, w: 259.7, h: 259.7 } },
-  36: { fileNoExt: "clewdo/rooms/36-vip-lounge-base",       pfp: { x: 450.0, y: 416.2, w: 345.8, h: 345.8 } },
+// Room image filenames (your naming convention)
+const ROOM_FILES = {
+  1: "01-entrance-hall-base.png",
+  2: "02-front-desk-base.png",
+  3: "03-cloakroom-base.png",
+  4: "04-gallery-base.png",
+  5: "05-hall-of-fame-base.png",
+  6: "06-smoking-terrace-base.png",
+  7: "07-fire-escape-base.png",
+  8: "08-bar-base.png",
+  9: "09-wine-cellar-base.png",
+  10: "10-snug-base.png",
+  11: "11-booths-base.png",
+  12: "12-powder-room-base.png",
+  13: "13-gents-bathroom-base.png",
+  14: "14-dance-floor-base.png",
+  15: "15-dj-booth-base.png",
+  16: "16-games-room-base.png",
+  17: "17-casino-base.png",
+  18: "18-shop-base.png",
+  19: "19-greenroom-base.png",
+  20: "20-staffroom-base.png",
+  21: "21-champagne-lounge-base.png",
+  22: "22-confessional-base.png",
+  23: "23-vacuum-chamber-base.png",
+  24: "24-red-room-base.png",
+  25: "25-flash-stage-base.png",
+  26: "26-owners-office-base.png",
+  27: "27-lift-base.png",
+  28: "28-hotel-floor-base.png",
+  29: "29-bedroom-one-base.png",
+  30: "30-bedroom-two-base.png",
+  31: "31-bedroom-three-base.png",
+  32: "32-bedroom-four-base.png",
+  33: "33-hot-tub-terrace-base.png",
+  34: "34-penthouse-base.png",
+  35: "35-late-checkout-desk-base.png",
+  36: "36-vip-lounge-base.png",
 };
 
-function jsonError(message, status = 400, extra = {}) {
-  return new Response(JSON.stringify({ error: message, ...extra }, null, 2), {
-    status,
-    headers: { "content-type": "application/json; charset=utf-8" },
-  });
+/**
+ * Avatar placement:
+ * x,y = TOP-LEFT of the (unrotated) square window
+ * w,h = window size
+ * rot = degrees (positive = CCW, negative = CW) [Sharp convention]
+ */
+const ROOM_AVATAR = {
+  3:  { x: 847.1, y: 552.7, w: 226.7, h: 226.7, rot:  2.1 },
+  4:  { x: 202.5, y: 367.5, w: 272.4, h: 272.4, rot: -1.1 },
+  5:  { x: 395.1, y: 431.9, w: 235.4, h: 235.4, rot: -1.4 },
+  6:  { x: 832.2, y: 534.6, w: 227.1, h: 227.1, rot:  2.1 },
+  7:  { x: 572.9, y: 558.1, w: 211.5, h: 211.5, rot: -1.4 },
+  8:  { x: 673.4, y: 390.6, w: 309.0, h: 309.0, rot: -1.3 },
+  9:  { x: 595.4, y: 484.9, w: 234.9, h: 234.9, rot: -1.3 },
+  10: { x: 627.9, y: 443.1, w: 236.5, h: 236.5, rot: -1.1 },
+  11: { x: 632.1, y: 495.7, w: 226.7, h: 226.7, rot: -1.4 },
+  12: { x: 313.5, y: 464.4, w: 302.4, h: 302.4, rot: -1.6 },
+  13: { x: 434.5, y: 474.5, w: 276.3, h: 276.3, rot: -2.9 },
+  14: { x: 434.7, y: 473.0, w: 271.4, h: 271.4, rot: -3.4 },
+  15: { x: 501.4, y: 433.4, w: 239.2, h: 239.2, rot: -1.5 },
+  16: { x: 596.1, y: 500.1, w: 224.9, h: 224.9, rot: -2.6 },
+  17: { x: 626.2, y: 513.2, w: 231.3, h: 231.3, rot: -1.4 },
+  18: { x: 589.4, y: 470.9, w: 265.5, h: 265.5, rot: -1.5 },
+  19: { x: 580.2, y: 439.4, w: 271.3, h: 271.3, rot: -1.9 },
+  20: { x: 567.6, y: 492.6, w: 244.7, h: 244.7, rot: -1.9 },
+  21: { x: 588.9, y: 464.0, w: 303.9, h: 303.9, rot: -1.3 },
+  22: { x: 589.4, y: 423.3, w: 264.1, h: 264.1, rot: -2.2 },
+  23: { x: 658.7, y: 545.5, w: 225.2, h: 225.2, rot: -1.4 },
+  24: { x: 797.1, y: 366.5, w: 273.6, h: 273.6, rot: -1.2 },
+  25: { x:  53.2, y: 367.7, w: 279.7, h: 279.7, rot: -1.5 },
+  26: { x: 170.0, y: 475.2, w: 252.5, h: 252.5, rot: -1.4 },
+  27: { x: 572.7, y: 579.4, w: 198.1, h: 198.1, rot: -3.4 },
+  28: { x: 467.0, y: 407.6, w: 216.8, h: 216.8, rot: -2.1 },
+  29: { x: 465.5, y: 481.0, w: 296.1, h: 296.1, rot: -1.2 },
+  30: { x: 531.2, y: 472.7, w: 251.3, h: 251.3, rot: -1.9 },
+  31: { x: 439.6, y: 370.5, w: 256.9, h: 256.9, rot: -1.4 },
+  32: { x: 437.4, y: 377.9, w: 288.2, h: 288.2, rot: -1.9 },
+  33: { x: 525.3, y: 589.6, w: 212.5, h: 212.5, rot: -1.5 },
+  34: { x: 476.1, y: 400.7, w: 262.2, h: 262.2, rot: -1.7 },
+  35: { x: 487.1, y: 488.8, w: 259.7, h: 259.7, rot: -2.1 },
+  36: { x: 450.0, y: 416.2, w: 345.8, h: 345.8, rot: -1.3 },
+};
+
+async function fetchAsBuffer(url, method = "GET") {
+  const res = await fetch(url, { method, cache: "no-store" });
+  if (!res.ok) throw new Error(`Failed to fetch file: ${url} (${res.status})`);
+  if (method === "HEAD") return Buffer.from([]);
+  const ab = await res.arrayBuffer();
+  return Buffer.from(ab);
+}
+
+async function resolveRoomAssetUrl(roomNum) {
+  const file = ROOM_FILES[roomNum];
+  if (!file) throw new Error(`Invalid room. Use room=1..36`);
+  const basePath = `${ROOMS_PREFIX}${file}`;
+
+  const candidates = [basePath];
+
+  // If mapping says .png, also try jpg/jpeg so your repo can contain mixed formats.
+  if (file.toLowerCase().endsWith(".png")) {
+    candidates.push(basePath.replace(/\.png$/i, ".jpg"));
+    candidates.push(basePath.replace(/\.png$/i, ".jpeg"));
+  }
+
+  // If mapping says jpg/jpeg, also try png
+  if (file.toLowerCase().endsWith(".jpg") || file.toLowerCase().endsWith(".jpeg")) {
+    candidates.push(basePath.replace(/\.(jpg|jpeg)$/i, ".png"));
+  }
+
+  for (const rel of candidates) {
+    const url = RAW_BASE + rel;
+    const head = await fetch(url, { method: "HEAD", cache: "no-store" });
+    if (head.ok) return url;
+  }
+
+  return RAW_BASE + basePath; // will throw a clearer error on GET
 }
 
 export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
 
-    const room = Number(searchParams.get("room") || "");
-    const avatarUrl = searchParams.get("avatar") || "";
-
-    if (!Number.isFinite(room) || room < 1 || room > 36) {
-      return jsonError("Invalid room. Use room=1..36", 400);
+    const room = Number(searchParams.get("room"));
+    if (!Number.isInteger(room) || room < 1 || room > 36) {
+      return NextResponse.json({ error: "Invalid room. Use room=1..36" }, { status: 400 });
     }
 
-    const cfg = ROOMS[room];
-    if (!cfg?.fileNoExt) {
-      return jsonError(`Room config missing for room ${room}`, 500);
-    }
+    const avatarUrl = searchParams.get("avatar"); // optional
+    const roomUrl = await resolveRoomAssetUrl(room);
 
-    // 1) Load base image (png/jpg/jpeg — whichever exists)
-    const { buf: baseBuf } = await fetchImageAnyExt(cfg.fileNoExt);
+    const baseBuf = await fetchAsBuffer(roomUrl);
 
-    // 2) If no avatar slot (room 1–2) OR no avatar provided -> return base as PNG
-    if (!cfg.pfp || !avatarUrl) {
-      const out = await sharp(baseBuf).png({ quality: 95 }).toBuffer();
-      return new Response(out, {
-        status: 200,
-        headers: {
-          "content-type": "image/png",
-          // Cache OK since base templates rarely change; tweak if you prefer.
-          "cache-control": "public, max-age=3600",
-        },
+    const placement = ROOM_AVATAR[room];
+
+    // No avatar OR no placement -> just return base image as PNG
+    if (!avatarUrl || !placement) {
+      const out = await sharp(baseBuf).png().toBuffer();
+      return new NextResponse(out, {
+        headers: { "Content-Type": "image/png", "Cache-Control": "no-store" },
       });
     }
 
-    // 3) Fetch + prep avatar
-    const avatarBuf = await fetchAvatar(avatarUrl);
+    // Fetch avatar and resize to target
+    const avatarBuf = await fetchAsBuffer(avatarUrl);
 
-    const w = Math.max(1, Math.round(cfg.pfp.w));
-    const h = Math.max(1, Math.round(cfg.pfp.h));
-    const x = Math.round(cfg.pfp.x);
-    const y = Math.round(cfg.pfp.y);
+    const w = Math.round(placement.w);
+    const h = Math.round(placement.h);
+    const rot = Number(placement.rot || 0);
 
-    // Resize avatar to the frame (cover) and convert to PNG for stable compositing.
-    const avatarPng = await sharp(avatarBuf)
+    const avatarLayer = await sharp(avatarBuf)
       .resize(w, h, { fit: "cover" })
       .png()
       .toBuffer();
 
-    // 4) Composite avatar into base
-    const out = await sharp(baseBuf)
-      .composite([{ input: avatarPng, left: x, top: y }])
-      .png({ quality: 95 })
+    // Rotate around center with transparent background
+    const rotated = await sharp(avatarLayer)
+      .rotate(rot, { background: { r: 0, g: 0, b: 0, alpha: 0 } })
+      .png()
       .toBuffer();
 
-    return new Response(out, {
-      status: 200,
-      headers: {
-        "content-type": "image/png",
-        "cache-control": "public, max-age=60",
-      },
+    const meta = await sharp(rotated).metadata();
+    const rotW = meta.width || w;
+    const rotH = meta.height || h;
+
+    // Convert your top-left to center, then place rotated layer by center alignment
+    const cx = placement.x + placement.w / 2;
+    const cy = placement.y + placement.h / 2;
+
+    const left = Math.round(cx - rotW / 2);
+    const top = Math.round(cy - rotH / 2);
+
+    const composed = await sharp(baseBuf)
+      .composite([{ input: rotated, left, top }])
+      .png()
+      .toBuffer();
+
+    return new NextResponse(composed, {
+      headers: { "Content-Type": "image/png", "Cache-Control": "no-store" },
     });
   } catch (err) {
-    // If GitHub fetch fails, surface the exact path we attempted
-    const msg = (err && err.message) ? err.message : "Unknown error";
-    return jsonError(msg, 500);
+    return NextResponse.json({ error: String(err?.message || err) }, { status: 500 });
   }
 }
