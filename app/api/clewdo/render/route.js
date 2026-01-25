@@ -1,5 +1,3 @@
-// app/api/clewdo/render/route.js
-
 import sharp from "sharp";
 
 export const runtime = "nodejs";
@@ -11,16 +9,19 @@ const ASSETS_BASE =
 
 const ROOMS_DIR = "clewdo/rooms";
 
+/**
+ * Exact filenames in your assets repo (minus extension).
+ */
 const ROOM_BASE = {
-  1: "01-entrance-hall-base",
-  2: "02-front-desk-base",
-  3: "03-cloakroom-base",
-  4: "04-gallery-base",
-  5: "05-hall-of-fame-base",
-  6: "06-smoking-terrace-base",
-  7: "07-fire-escape-base",
-  8: "08-bar-base",
-  9: "09-wine-cellar-base",
+  1:  "01-entrance-hall-base",
+  2:  "02-front-desk-base",
+  3:  "03-cloakroom-base",
+  4:  "04-gallery-base",
+  5:  "05-hall-of-fame-base",
+  6:  "06-smoking-terrace-base",
+  7:  "07-fire-escape-base",
+  8:  "08-bar-base",
+  9:  "09-wine-cellar-base",
   10: "10-snug-base",
   11: "11-booths-base",
   12: "12-powder-room-base",
@@ -40,21 +41,24 @@ const ROOM_BASE = {
   26: "26-owners-office-base",
   27: "27-lift-base",
   28: "28-hotel-floor-base",
+
+  // Bedrooms (filenames match your assets repo)
   29: "29-bedroom-one-base",
   30: "30-bedroom-two-base",
   31: "31-bedroom-three-base",
   32: "32-bedroom-four-base",
+
   33: "33-hot-tub-terrace-base",
   34: "34-penthouse-base",
   35: "35-late-checkout-desk-base",
   36: "36-vip-lounge-base",
 };
 
-// ✅ Default “micro alignment” nudge (right + down)
-const NUDGE_X_DEFAULT = 4;
-const NUDGE_Y_DEFAULT = 4;
-
-const VICTIM_FRAME = {
+/**
+ * Avatar placement (top-left X/Y, size W/H, rotation degrees).
+ * Rooms 29–32 UPDATED to your corrected values.
+ */
+const PFP = {
   3:  { x: 847.1, y: 552.7, w: 226.7, h: 226.7, r:  2.1 },
   4:  { x: 202.5, y: 367.5, w: 272.4, h: 272.4, r: -1.1 },
   5:  { x: 395.1, y: 431.9, w: 235.4, h: 235.4, r: -1.4 },
@@ -81,119 +85,127 @@ const VICTIM_FRAME = {
   26: { x: 170.0, y: 475.2, w: 252.5, h: 252.5, r: -1.4 },
   27: { x: 572.7, y: 579.4, w: 198.1, h: 198.1, r: -3.4 },
   28: { x: 467.0, y: 407.6, w: 216.8, h: 216.8, r: -2.1 },
-  29: { x: 465.5, y: 481.0, w: 296.1, h: 296.1, r: -1.2 },
-  30: { x: 531.2, y: 472.7, w: 251.3, h: 251.3, r: -1.9 },
-  31: { x: 439.6, y: 370.5, w: 256.9, h: 256.9, r: -1.4 },
-  32: { x: 437.4, y: 377.9, w: 288.2, h: 288.2, r: -1.9 },
+
+  // ✅ UPDATED bedrooms per your corrected mapping
+  29: { x: 531.2, y: 472.2, w: 251.3, h: 251.3, r: -1.9 }, // Bedroom One
+  30: { x: 437.4, y: 377.9, w: 288.2, h: 288.2, r: -1.9 }, // Bedroom Two
+  31: { x: 465.5, y: 481.0, w: 296.1, h: 296.1, r: -1.2 }, // Bedroom Three
+  32: { x: 439.6, y: 370.5, w: 256.9, h: 256.9, r: -1.4 }, // Bedroom Four
+
   33: { x: 525.3, y: 589.6, w: 212.5, h: 212.5, r: -1.5 },
   34: { x: 476.1, y: 400.7, w: 262.2, h: 262.2, r: -1.7 },
   35: { x: 487.1, y: 488.8, w: 259.7, h: 259.7, r: -2.1 },
   36: { x: 450.0, y: 416.2, w: 345.8, h: 345.8, r: -1.3 },
 };
 
-async function fetchFirstExisting(urls) {
-  for (const url of urls) {
+const EXT_TRY = ["png", "jpg", "jpeg", "webp"];
+
+async function fetchAnyExt(pathNoExt) {
+  for (const ext of EXT_TRY) {
+    const url = `${ASSETS_BASE}/${pathNoExt}.${ext}`;
     const res = await fetch(url, { cache: "no-store" });
-    if (res.ok) return { url, buf: Buffer.from(await res.arrayBuffer()) };
+    if (res.ok) return { buf: Buffer.from(await res.arrayBuffer()), url };
   }
   return null;
 }
 
-async function loadRoomBase(roomNum) {
-  const key = ROOM_BASE[roomNum];
-  if (!key) return { error: `Invalid room: ${roomNum}` };
-
-  const basePrefix = `${ASSETS_BASE}/${ROOMS_DIR}/${key}`;
-  const found = await fetchFirstExisting([
-    `${basePrefix}.png`,
-    `${basePrefix}.jpg`,
-    `${basePrefix}.jpeg`,
-  ]);
-
-  if (!found) {
-    return { error: `Missing base image: ${ROOMS_DIR}/${key}(.png|.jpg|.jpeg)` };
-  }
-  return { buf: found.buf };
-}
-
-async function makeRotatedAvatarOverlay(avatarBuf, frame, nudgeX, nudgeY) {
-  const resized = await sharp(avatarBuf)
-    .resize(Math.round(frame.w), Math.round(frame.h), { fit: "cover" })
-    .png()
-    .toBuffer();
-
-  const rotated = await sharp(resized)
-    .rotate(frame.r, { background: { r: 0, g: 0, b: 0, alpha: 0 } })
-    .png()
-    .toBuffer();
-
-  const meta = await sharp(rotated).metadata();
-  const rw = meta.width || Math.round(frame.w);
-  const rh = meta.height || Math.round(frame.h);
-
-  const left = Math.round(frame.x - (rw - frame.w) / 2 + nudgeX);
-  const top  = Math.round(frame.y - (rh - frame.h) / 2 + nudgeY);
-
-  return { input: rotated, left, top };
+function toInt(v, fallback) {
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.trunc(n) : fallback;
 }
 
 export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
 
-    const room = Number(searchParams.get("room") || "0");
-    const avatarUrl = searchParams.get("avatar");
+    const room = toInt(searchParams.get("room"), 1);
+    const avatarUrl = searchParams.get("avatar") || "";
+    const debug = searchParams.get("debug") === "1";
 
-    // ✅ optional per-request nudges:
-    //   &nx=4&ny=4
-    const nx = Number(searchParams.get("nx") ?? NUDGE_X_DEFAULT);
-    const ny = Number(searchParams.get("ny") ?? NUDGE_Y_DEFAULT);
+    // Defaults locked to your current "very close" tuning:
+    const nx = toInt(searchParams.get("nx"), 6);   // right
+    const ny = toInt(searchParams.get("ny"), -6);  // up
 
-    const base = await loadRoomBase(room);
-    if (base.error) {
-      return new Response(JSON.stringify({ error: base.error }), {
-        status: 404,
-        headers: { "content-type": "application/json" },
-      });
-    }
-
-    if (!avatarUrl) {
-      return new Response(base.buf, {
-        status: 200,
-        headers: { "content-type": "image/png", "cache-control": "no-store" },
-      });
-    }
-
-    const aRes = await fetch(avatarUrl, { cache: "no-store" });
-    if (!aRes.ok) {
-      return new Response(JSON.stringify({ error: `Failed to fetch avatar (${aRes.status})` }), {
+    const baseKey = ROOM_BASE[room];
+    if (!baseKey) {
+      return new Response(JSON.stringify({ error: `Invalid room: ${room}` }), {
         status: 400,
         headers: { "content-type": "application/json" },
       });
     }
-    const avatarBuf = Buffer.from(await aRes.arrayBuffer());
 
-    const frame = VICTIM_FRAME[room];
-    if (!frame) {
-      return new Response(base.buf, {
-        status: 200,
-        headers: { "content-type": "image/png", "cache-control": "no-store" },
-      });
+    const basePathNoExt = `${ROOMS_DIR}/${baseKey}`;
+    const baseFetch = await fetchAnyExt(basePathNoExt);
+
+    if (!baseFetch) {
+      return new Response(
+        JSON.stringify({ error: `Missing base image: ${basePathNoExt}(.png|.jpg|.jpeg|.webp)` }),
+        { status: 404, headers: { "content-type": "application/json" } }
+      );
     }
 
-    const overlay = await makeRotatedAvatarOverlay(avatarBuf, frame, nx, ny);
+    let img = sharp(baseFetch.buf);
 
-    const out = await sharp(base.buf)
-      .composite([overlay])
-      .png()
-      .toBuffer();
+    const slot = PFP[room];
 
+    if (slot && avatarUrl) {
+      const aRes = await fetch(avatarUrl, { cache: "no-store" });
+      if (!aRes.ok) {
+        return new Response(JSON.stringify({ error: `Failed to fetch avatar (${aRes.status})` }), {
+          status: 400,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      const aBuf = Buffer.from(await aRes.arrayBuffer());
+
+      // Resize to slot
+      const resized = await sharp(aBuf)
+        .resize(Math.round(slot.w), Math.round(slot.h), { fit: "cover" })
+        .png()
+        .toBuffer();
+
+      // Rotate, then crop back to slot size so placement stays stable
+      const rotatedCropped = await sharp(resized)
+        .rotate(slot.r, { background: { r: 0, g: 0, b: 0, alpha: 0 } })
+        .resize(Math.round(slot.w), Math.round(slot.h), { fit: "cover" })
+        .png()
+        .toBuffer();
+
+      img = img.composite([
+        {
+          input: rotatedCropped,
+          left: Math.round(slot.x + nx),
+          top: Math.round(slot.y + ny),
+        },
+      ]);
+    }
+
+    if (debug) {
+      return new Response(
+        JSON.stringify(
+          {
+            room,
+            baseKey,
+            baseUsed: baseFetch.url,
+            slot: slot || null,
+            nx,
+            ny,
+            avatarUsed: avatarUrl || null,
+          },
+          null,
+          2
+        ),
+        { status: 200, headers: { "content-type": "application/json" } }
+      );
+    }
+
+    const out = await img.png().toBuffer();
     return new Response(out, {
       status: 200,
       headers: { "content-type": "image/png", "cache-control": "no-store" },
     });
-  } catch (err) {
-    return new Response(JSON.stringify({ error: err?.message || "Unknown error" }), {
+  } catch (e) {
+    return new Response(JSON.stringify({ error: String(e?.message || e) }), {
       status: 500,
       headers: { "content-type": "application/json" },
     });
