@@ -1,0 +1,15 @@
+{
+  "name": "whisper-clewdo-api",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "next": "15.1.3",
+    "sharp": "0.33.5"
+  }
+}
