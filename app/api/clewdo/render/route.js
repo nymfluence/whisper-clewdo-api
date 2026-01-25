@@ -1,3 +1,5 @@
+export const runtime = "nodejs";
+
 import { NextResponse } from "next/server";
 import {
   getRoomsAndFrames,
@@ -31,9 +33,10 @@ export async function GET(req) {
       );
     }
 
+    // Base image for this room
     const base = await getRoomBaseImageBuffer(room);
 
-    // Rooms 1-2: just return base image (no PFP compositing)
+    // Rooms 1-2: return base image unchanged (no PFP compositing)
     if (!roomHasVictimFrame(room)) {
       return new NextResponse(base, {
         status: 200,
@@ -59,6 +62,7 @@ export async function GET(req) {
       );
     }
 
+    // Load frames config & get victim frame bounds
     const { frames } = await getRoomsAndFrames();
     const frame = getVictimFrame(room, frames);
 
@@ -69,6 +73,7 @@ export async function GET(req) {
       );
     }
 
+    // Fetch avatar and composite into base at given coordinates
     const avatar = await fetchImageBuffer(avatarUrl);
 
     const composed = await compositeAvatarIntoBase({
@@ -80,12 +85,12 @@ export async function GET(req) {
       h: frame.h
     });
 
-    // Cache: since avatar URLs change per victim, we cache but not immutable
+    // Cache: avatar changes per victim; allow caching but not immutable
     return new NextResponse(composed, {
       status: 200,
       headers: {
         "Content-Type": "image/png",
-        "Cache-Control": "public, max-age=86400" // 1 day
+        "Cache-Control": "public, max-age=86400"
       }
     });
   } catch (err) {
