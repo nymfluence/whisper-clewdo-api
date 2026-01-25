@@ -1,6 +1,6 @@
 # whisper-clewdo-api
 
-Vercel API that composites a Discord member avatar into WHISPER · CLEWDO room templates hosted in `whisper-clewdo-assets`.
+Vercel API that composites a Discord member avatar into WHISPER · CLEWDO room templates hosted in `whisper-clewdo-assets`
 
 ## Endpoint
 
