@@ -5,27 +5,12 @@ import sharp from "sharp";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/**
- * ASSET SOURCE (GitHub raw)
- * If you already use an env var in Vercel, set ASSETS_BASE_URL there and it will override.
- *
- * Example:
- * https://raw.githubusercontent.com/nymfluence/whisper-clewdo-assets/main
- */
 const ASSETS_BASE =
   process.env.ASSETS_BASE_URL?.replace(/\/$/, "") ||
   "https://raw.githubusercontent.com/nymfluence/whisper-clewdo-assets/main";
 
-/**
- * Your rooms are stored here:
- * whisper-clewdo-assets / clewdo / rooms / <filename>.(png|jpg|jpeg)
- */
 const ROOMS_DIR = "clewdo/rooms";
 
-/**
- * Exact filenames you said you're using (without extension).
- * IMPORTANT: These must match the filenames in GitHub exactly (minus .png/.jpg/.jpeg)
- */
 const ROOM_BASE = {
   1: "01-entrance-hall-base",
   2: "02-front-desk-base",
@@ -65,12 +50,10 @@ const ROOM_BASE = {
   36: "36-vip-lounge-base",
 };
 
-/**
- * Your overlay coordinates (X,Y,W,H,Rotation degrees) for the VICTIM frame.
- * (Rooms 1–2 have no frame, and VIP lounge differs later if needed.)
- *
- * If you already have this object in a separate file, you can keep it there — but this route will work either way.
- */
+// ✅ Default “micro alignment” nudge (right + down)
+const NUDGE_X_DEFAULT = 4;
+const NUDGE_Y_DEFAULT = 4;
+
 const VICTIM_FRAME = {
   3:  { x: 847.1, y: 552.7, w: 226.7, h: 226.7, r:  2.1 },
   4:  { x: 202.5, y: 367.5, w: 272.4, h: 272.4, r: -1.1 },
@@ -133,35 +116,23 @@ async function loadRoomBase(roomNum) {
   return { buf: found.buf };
 }
 
-function degToRad(deg) {
-  return (deg * Math.PI) / 180;
-}
-
-/**
- * Rotates the avatar and composites it centered into the target frame rectangle.
- * We rotate about the center and then place using the frame's top-left.
- */
-async function makeRotatedAvatarOverlay(avatarBuf, frame) {
-  // 1) Resize avatar exactly to W/H
+async function makeRotatedAvatarOverlay(avatarBuf, frame, nudgeX, nudgeY) {
   const resized = await sharp(avatarBuf)
     .resize(Math.round(frame.w), Math.round(frame.h), { fit: "cover" })
     .png()
     .toBuffer();
 
-  // 2) Rotate with transparent background, expanding canvas
   const rotated = await sharp(resized)
     .rotate(frame.r, { background: { r: 0, g: 0, b: 0, alpha: 0 } })
     .png()
     .toBuffer();
 
-  // 3) Find rotated dimensions
   const meta = await sharp(rotated).metadata();
   const rw = meta.width || Math.round(frame.w);
   const rh = meta.height || Math.round(frame.h);
 
-  // 4) To keep the rotated image centered over the frame, offset by half the expansion
-  const left = Math.round(frame.x - (rw - frame.w) / 2);
-  const top  = Math.round(frame.y - (rh - frame.h) / 2);
+  const left = Math.round(frame.x - (rw - frame.w) / 2 + nudgeX);
+  const top  = Math.round(frame.y - (rh - frame.h) / 2 + nudgeY);
 
   return { input: rotated, left, top };
 }
@@ -171,9 +142,13 @@ export async function GET(req) {
     const { searchParams } = new URL(req.url);
 
     const room = Number(searchParams.get("room") || "0");
-    const avatarUrl = searchParams.get("avatar"); // victim avatar
+    const avatarUrl = searchParams.get("avatar");
 
-    // Load base image (THIS is the part that was breaking for you)
+    // ✅ optional per-request nudges:
+    //   &nx=4&ny=4
+    const nx = Number(searchParams.get("nx") ?? NUDGE_X_DEFAULT);
+    const ny = Number(searchParams.get("ny") ?? NUDGE_Y_DEFAULT);
+
     const base = await loadRoomBase(room);
     if (base.error) {
       return new Response(JSON.stringify({ error: base.error }), {
@@ -182,18 +157,13 @@ export async function GET(req) {
       });
     }
 
-    // If no avatar requested, return base image as-is
     if (!avatarUrl) {
       return new Response(base.buf, {
         status: 200,
-        headers: {
-          "content-type": "image/png",
-          "cache-control": "no-store",
-        },
+        headers: { "content-type": "image/png", "cache-control": "no-store" },
       });
     }
 
-    // Fetch avatar
     const aRes = await fetch(avatarUrl, { cache: "no-store" });
     if (!aRes.ok) {
       return new Response(JSON.stringify({ error: `Failed to fetch avatar (${aRes.status})` }), {
@@ -203,23 +173,16 @@ export async function GET(req) {
     }
     const avatarBuf = Buffer.from(await aRes.arrayBuffer());
 
-    // Frame data for this room
     const frame = VICTIM_FRAME[room];
     if (!frame) {
-      // rooms 1–2 etc
       return new Response(base.buf, {
         status: 200,
-        headers: {
-          "content-type": "image/png",
-          "cache-control": "no-store",
-        },
+        headers: { "content-type": "image/png", "cache-control": "no-store" },
       });
     }
 
-    // Build overlay (rotated + centered)
-    const overlay = await makeRotatedAvatarOverlay(avatarBuf, frame);
+    const overlay = await makeRotatedAvatarOverlay(avatarBuf, frame, nx, ny);
 
-    // Composite avatar onto base
     const out = await sharp(base.buf)
       .composite([overlay])
       .png()
@@ -227,10 +190,7 @@ export async function GET(req) {
 
     return new Response(out, {
       status: 200,
-      headers: {
-        "content-type": "image/png",
-        "cache-control": "no-store",
-      },
+      headers: { "content-type": "image/png", "cache-control": "no-store" },
     });
   } catch (err) {
     return new Response(JSON.stringify({ error: err?.message || "Unknown error" }), {
