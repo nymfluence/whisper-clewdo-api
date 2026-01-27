@@ -9,16 +9,19 @@ const ASSETS_BASE =
 
 const ROOMS_DIR = "clewdo/rooms";
 
+/**
+ * Exact filenames in your assets repo (minus extension).
+ */
 const ROOM_BASE = {
-  1:  "01-entrance-hall-base",
-  2:  "02-front-desk-base",
-  3:  "03-cloakroom-base",
-  4:  "04-gallery-base",
-  5:  "05-hall-of-fame-base",
-  6:  "06-smoking-terrace-base",
-  7:  "07-fire-escape-base",
-  8:  "08-bar-base",
-  9:  "09-wine-cellar-base",
+  1: "01-entrance-hall-base",
+  2: "02-front-desk-base",
+  3: "03-cloakroom-base",
+  4: "04-gallery-base",
+  5: "05-hall-of-fame-base",
+  6: "06-smoking-terrace-base",
+  7: "07-fire-escape-base",
+  8: "08-bar-base",
+  9: "09-wine-cellar-base",
   10: "10-snug-base",
   11: "11-booths-base",
   12: "12-powder-room-base",
@@ -38,24 +41,31 @@ const ROOM_BASE = {
   26: "26-owners-office-base",
   27: "27-lift-base",
   28: "28-hotel-floor-base",
+
+  // Bedrooms (filenames match your assets repo)
   29: "29-bedroom-one-base",
   30: "30-bedroom-two-base",
   31: "31-bedroom-three-base",
   32: "32-bedroom-four-base",
+
   33: "33-hot-tub-terrace-base",
   34: "34-penthouse-base",
   35: "35-late-checkout-desk-base",
   36: "36-vip-lounge-base",
 };
 
+/**
+ * Avatar placement (top-left X/Y, size W/H, rotation degrees).
+ * Rooms 29–32 UPDATED to your corrected values.
+ */
 const PFP = {
-  3:  { x: 847.1, y: 552.7, w: 226.7, h: 226.7, r:  2.1 },
-  4:  { x: 202.5, y: 367.5, w: 272.4, h: 272.4, r: -1.1 },
-  5:  { x: 395.1, y: 431.9, w: 235.4, h: 235.4, r: -1.4 },
-  6:  { x: 832.2, y: 534.6, w: 227.1, h: 227.1, r:  2.1 },
-  7:  { x: 572.9, y: 558.1, w: 211.5, h: 211.5, r: -1.4 },
-  8:  { x: 673.4, y: 390.6, w: 309.0, h: 309.0, r: -1.3 },
-  9:  { x: 595.4, y: 484.9, w: 234.9, h: 234.9, r: -1.3 },
+  3: { x: 847.1, y: 552.7, w: 226.7, h: 226.7, r: 2.1 },
+  4: { x: 202.5, y: 367.5, w: 272.4, h: 272.4, r: -1.1 },
+  5: { x: 395.1, y: 431.9, w: 235.4, h: 235.4, r: -1.4 },
+  6: { x: 832.2, y: 534.6, w: 227.1, h: 227.1, r: 2.1 },
+  7: { x: 572.9, y: 558.1, w: 211.5, h: 211.5, r: -1.4 },
+  8: { x: 673.4, y: 390.6, w: 309.0, h: 309.0, r: -1.3 },
+  9: { x: 595.4, y: 484.9, w: 234.9, h: 234.9, r: -1.3 },
   10: { x: 627.9, y: 443.1, w: 236.5, h: 236.5, r: -1.1 },
   11: { x: 632.1, y: 495.7, w: 226.7, h: 226.7, r: -1.4 },
   12: { x: 313.5, y: 464.4, w: 302.4, h: 302.4, r: -1.6 },
@@ -71,14 +81,17 @@ const PFP = {
   22: { x: 589.4, y: 423.3, w: 264.1, h: 264.1, r: -2.2 },
   23: { x: 658.7, y: 545.5, w: 225.2, h: 225.2, r: -1.4 },
   24: { x: 797.1, y: 366.5, w: 273.6, h: 273.6, r: -1.2 },
-  25: { x:  53.2, y: 367.7, w: 279.7, h: 279.7, r: -1.5 },
+  25: { x: 53.2, y: 367.7, w: 279.7, h: 279.7, r: -1.5 },
   26: { x: 170.0, y: 475.2, w: 252.5, h: 252.5, r: -1.4 },
   27: { x: 572.7, y: 579.4, w: 198.1, h: 198.1, r: -3.4 },
   28: { x: 467.0, y: 407.6, w: 216.8, h: 216.8, r: -2.1 },
-  29: { x: 531.2, y: 472.2, w: 251.3, h: 251.3, r: -1.9 },
-  30: { x: 437.4, y: 377.9, w: 288.2, h: 288.2, r: -1.9 },
-  31: { x: 465.5, y: 481.0, w: 296.1, h: 296.1, r: -1.2 },
-  32: { x: 439.6, y: 370.5, w: 256.9, h: 256.9, r: -1.4 },
+
+  // ✅ Bedrooms per your corrected mapping
+  29: { x: 531.2, y: 472.2, w: 251.3, h: 251.3, r: -1.9 }, // Bedroom One
+  30: { x: 437.4, y: 377.9, w: 288.2, h: 288.2, r: -1.9 }, // Bedroom Two
+  31: { x: 465.5, y: 481.0, w: 296.1, h: 296.1, r: -1.2 }, // Bedroom Three
+  32: { x: 439.6, y: 370.5, w: 256.9, h: 256.9, r: -1.4 }, // Bedroom Four
+
   33: { x: 525.3, y: 589.6, w: 212.5, h: 212.5, r: -1.5 },
   34: { x: 476.1, y: 400.7, w: 262.2, h: 262.2, r: -1.7 },
   35: { x: 487.1, y: 488.8, w: 259.7, h: 259.7, r: -2.1 },
@@ -107,16 +120,17 @@ export async function GET(req) {
 
     const room = toInt(searchParams.get("room"), 1);
 
-    // ✅ Option A: avatar is OPTIONAL + support both param names
+    // NOTE: Your YAG CC uses avatarUrl=...
+    // but some older tests used avatar=...
+    // We'll support BOTH to avoid silent failures.
     const avatarUrl =
-      searchParams.get("avatarUrl") ||
-      searchParams.get("avatar") ||
-      "";
+      searchParams.get("avatarUrl") || searchParams.get("avatar") || "";
 
     const debug = searchParams.get("debug") === "1";
 
-    const nx = toInt(searchParams.get("nx"), 6);
-    const ny = toInt(searchParams.get("ny"), -6);
+    // ✅ NUDGE: up + right (defaults)
+    const nx = toInt(searchParams.get("nx"), 8); // right (was 6)
+    const ny = toInt(searchParams.get("ny"), -8); // up   (was -6)
 
     const baseKey = ROOM_BASE[room];
     if (!baseKey) {
@@ -141,36 +155,36 @@ export async function GET(req) {
     let img = sharp(baseFetch.buf);
     const slot = PFP[room];
 
-    // ✅ Only attempt avatar fetch/composite if BOTH slot exists and avatarUrl provided
     if (slot && avatarUrl) {
-      // (soften failures: if avatar fetch fails, we just return base image)
-      try {
-        const aRes = await fetch(avatarUrl, { cache: "no-store" });
-        if (aRes.ok) {
-          const aBuf = Buffer.from(await aRes.arrayBuffer());
-
-          const resized = await sharp(aBuf)
-            .resize(Math.round(slot.w), Math.round(slot.h), { fit: "cover" })
-            .png()
-            .toBuffer();
-
-          const rotatedCropped = await sharp(resized)
-            .rotate(slot.r, { background: { r: 0, g: 0, b: 0, alpha: 0 } })
-            .resize(Math.round(slot.w), Math.round(slot.h), { fit: "cover" })
-            .png()
-            .toBuffer();
-
-          img = img.composite([
-            {
-              input: rotatedCropped,
-              left: Math.round(slot.x + nx),
-              top: Math.round(slot.y + ny),
-            },
-          ]);
-        }
-      } catch {
-        // swallow avatar errors — base render still succeeds
+      const aRes = await fetch(avatarUrl, { cache: "no-store" });
+      if (!aRes.ok) {
+        return new Response(
+          JSON.stringify({ error: `Failed to fetch avatar (${aRes.status})` }),
+          { status: 400, headers: { "content-type": "application/json" } }
+        );
       }
+      const aBuf = Buffer.from(await aRes.arrayBuffer());
+
+      // Resize to slot
+      const resized = await sharp(aBuf)
+        .resize(Math.round(slot.w), Math.round(slot.h), { fit: "cover" })
+        .png()
+        .toBuffer();
+
+      // Rotate, then crop back to slot size so placement stays stable
+      const rotatedCropped = await sharp(resized)
+        .rotate(slot.r, { background: { r: 0, g: 0, b: 0, alpha: 0 } })
+        .resize(Math.round(slot.w), Math.round(slot.h), { fit: "cover" })
+        .png()
+        .toBuffer();
+
+      img = img.composite([
+        {
+          input: rotatedCropped,
+          left: Math.round(slot.x + nx),
+          top: Math.round(slot.y + ny),
+        },
+      ]);
     }
 
     if (debug) {
