@@ -129,8 +129,8 @@ export async function GET(req) {
     const debug = searchParams.get("debug") === "1";
 
     // ✅ NUDGE: up + right (defaults)
-    const nx = toInt(searchParams.get("nx"), 8); // right (was 6)
-    const ny = toInt(searchParams.get("ny"), -8); // up   (was -6)
+    const nx = toInt(searchParams.get("nx"), 12); // right (was 6)
+    const ny = toInt(searchParams.get("ny"), -12); // up   (was -6)
 
     const baseKey = ROOM_BASE[room];
     if (!baseKey) {
