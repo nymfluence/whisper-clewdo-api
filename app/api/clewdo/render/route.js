@@ -130,7 +130,7 @@ export async function GET(req) {
 
     // ✅ Default nudges (NOW WILL ACTUALLY APPLY)
     const nx = toInt(searchParams.get("nx"), 2);   // right/east
-    const ny = toInt(searchParams.get("ny"), -2;  // up/north
+    const ny = toInt(searchParams.get("ny"), -2); // up/north
 
     const baseKey = ROOM_BASE[room];
     if (!baseKey) {
