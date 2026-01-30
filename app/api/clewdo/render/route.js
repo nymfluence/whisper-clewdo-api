@@ -130,8 +130,8 @@ export async function GET(req) {
     const debug = searchParams.get("debug") === "1";
 
     // ✅ Default nudges (applies unless overridden by query)
-    const nx = toInt(searchParams.get("nx"), 6);   // right/east
-    const ny = toInt(searchParams.get("ny"), -6);  // up/north
+    const nx = toInt(searchParams.get("nx"), 7);   // right/east
+    const ny = toInt(searchParams.get("ny"), -7);  // up/north
 
     const baseKey = ROOM_BASE[room];
     if (!baseKey) {
